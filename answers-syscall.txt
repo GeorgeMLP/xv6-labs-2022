@@ -1,0 +1,7 @@
+usertrap
+7; SYS_exec
+user mode
+lw a3,0(zero); a3
+load page fault
+initcode; 1
+
