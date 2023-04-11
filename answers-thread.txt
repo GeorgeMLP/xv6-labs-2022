@@ -1,0 +1,2 @@
+when two threads inserts at the same time, only one of the keys is inserted
+
