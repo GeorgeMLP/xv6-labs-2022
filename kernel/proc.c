@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "fcntl.h"
 
 struct cpu cpus[NCPU];
 
@@ -140,6 +141,16 @@ found:
     return 0;
   }
 
+  for(int i = 0; i < VMASIZE; i++){
+    p->vma[i].used = 0;
+    p->vma[i].addr = 0;
+    p->vma[i].length = 0;
+    p->vma[i].prot = 0;
+    p->vma[i].flags = 0;
+    p->vma[i].fd = 0;
+    p->vma[i].offset = 0;
+  }
+
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -169,6 +180,15 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  for(int i = 0; i < VMASIZE; i++){
+    p->vma[i].used = 0;
+    p->vma[i].addr = 0;
+    p->vma[i].length = 0;
+    p->vma[i].prot = 0;
+    p->vma[i].flags = 0;
+    p->vma[i].fd = 0;
+    p->vma[i].offset = 0;
+  }
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -320,6 +340,11 @@ fork(void)
 
   acquire(&np->lock);
   np->state = RUNNABLE;
+  for(i = 0; i < VMASIZE; i++)
+    if(p->vma[i].used){
+      memmove(&(np->vma[i]), &(p->vma[i]), sizeof(p->vma[i]));
+      filedup(p->vma[i].file);
+    }
   release(&np->lock);
 
   return pid;
@@ -359,6 +384,15 @@ exit(int status)
       p->ofile[fd] = 0;
     }
   }
+
+  for(int i = 0; i < VMASIZE; i++)
+    if(p->vma[i].used){
+      if(p->vma[i].flags & MAP_SHARED)
+        filewrite(p->vma[i].file, p->vma[i].addr, p->vma[i].length);
+      fileclose(p->vma[i].file);
+      uvmunmap(p->pagetable, p->vma[i].addr, p->vma[i].length / PGSIZE, 1);
+      p->vma[i].used = 0;
+    }
 
   begin_op();
   iput(p->cwd);
