@@ -75,6 +75,7 @@ usertrap(void)
     uint64 va = r_stval();
     if(va >= p->sz || va > MAXVA ||
        PGROUNDUP(va) == PGROUNDDOWN(p->trapframe->sp))setkilled(p);
+    else if(r_scause() == 15 && va <= PGSIZE)setkilled(p);
     else {
       struct vma *vma = 0;
       for(int i = 0; i < VMASIZE; i++)
